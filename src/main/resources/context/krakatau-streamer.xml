@@ -1,40 +1,38 @@
-<beans xmlns="http://www.springframework.org/schema/beans"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://www.springframework.org/schema/beans
-http://www.springframework.org/schema/beans/spring-beans-2.5.xsd">
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xmlns="http://www.springframework.org/schema/beans"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:task="http://www.springframework.org/schema/task"
+	xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+	xmlns:camel="http://camel.apache.org/schema/spring"
+	xmlns:mongo="http://www.springframework.org/schema/data/mongo"
+	xsi:schemaLocation="
+		http://www.springframework.org/schema/beans
+		http://www.springframework.org/schema/beans/spring-beans-3.2.xsd
+		http://www.springframework.org/schema/context
+		http://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/tx 
+       	http://www.springframework.org/schema/tx/spring-tx-3.2.xsd
+       	http://www.springframework.org/schema/task
+       	http://www.springframework.org/schema/task/spring-task-3.2.xsd
+       	http://www.springframework.org/schema/data/jpa 
+       	http://www.springframework.org/schema/data/jpa/spring-jpa.xsd
+       	http://www.springframework.org/schema/data/mongo
+    	http://www.springframework.org/schema/data/mongo/spring-mongo-1.0.xsd">
 
-	
-	<bean id="cachedConnectionFactory" class="org.springframework.jms.connection.CachingConnectionFactory">
-		<property name="targetConnectionFactory" ref="amqConnectionFactory" />
-		<property name="sessionCacheSize" value="30" />
-	</bean>
-	
-	<bean id="amqConnectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory">
-		<property name="brokerURL" value="tcp://smarta:61616" /> 
-		<!--<property name="brokerURL" value="tcp://localhost:61616" />-->
-		<property name="userName" value="smx"/>
-		<property name="password" value="smx"/>
-	</bean>
+	<context:property-placeholder location="classpath*:context/configuration.properties" />
 	
 	<bean id="twitterService" class="id.smarta.krakatau.streamer.twitter.TwitterServiceImpl">
-		<property name="taskExecutor" ref="taskExecutor" />
+		<property name="krakatauRepository" ref="krakatauRepository" />
 		<property name="twitterReader" ref="twitterReader"/>
+		<property name="streamFollowId" value="${twitter.stream.follow.id}"/>
 	</bean>
 
 	<bean id="twitterReader" class="id.smarta.krakatau.streamer.twitter.TwitterReader">
-		<property name="twitterJmsTemplate" ref="twitterJmsTemplate"/>
 		<property name="taskExecutor" ref="taskExecutor" />
-	</bean>
-	
-	<bean id="twitterJmsTemplate" class="org.springframework.jms.core.JmsTemplate">
-		<property name="connectionFactory" ref="cachedConnectionFactory"/>
-		<property name="defaultDestination" ref="twitterRouterStep1Queue" />
-		<property name="receiveTimeout" value="30000"/>
-        <property name="timeToLive" value="30000"/> 
-	</bean>
-	
-	<bean id="twitterRouterStep1Queue" class="org.apache.activemq.command.ActiveMQQueue">
-		<constructor-arg value="twitterFollowIds1" />
+		<property name="krakatauRepository" ref="krakatauRepository" />
+		<property name="twitterRepository" ref="twitterRepository"/>
+		<property name="keywordGroup" value="${twitter.keyword.group}"/>
 	</bean>
 	
 	<bean id="taskExecutor"
@@ -44,5 +42,43 @@ http://www.springframework.org/schema/beans/spring-beans-2.5.xsd">
 		<property name="queueCapacity" value="100" />
 		<property name="waitForTasksToCompleteOnShutdown" value="true" />
 	</bean>
+	
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+		<property name="driverClassName" value="${jdbc.driver.className}" />
+		<property name="url" value="${jdbc.url}" />
+		<property name="username" value="${jdbc.username}" />
+		<property name="password" value="${jdbc.password}" />
+		<property name="removeAbandoned" value="true"/>
+	   	<property name="initialSize" value="5" />
+	   	<property name="maxActive" value="20" />
+	   	<property name="testOnBorrow" value="true"/>
+        <property name="testOnReturn" value="true"/>
+        <property name="testWhileIdle" value="true"/>
+	   	<property name="validationQuery" value="SELECT 1 FROM DUAL" />
+	</bean>
+	
+	<bean id="krakatauRepository" class="id.smarta.krakatau.streamer.dao.KrakatauRepository">
+		<property name="dataSource" ref="dataSource"/>
+	</bean>
+	
+	<bean id="twitterRepository" class="id.smarta.krakatau.streamer.dao.TwitterRepository">
+		<property name="mongoTemplate" ref="mongoTemplate"/>
+	</bean>
+	
+	<bean id="mongo" class="org.springframework.data.mongodb.core.MongoFactoryBean">
+		<property name="host" value="${mongodb.host}" />
+	</bean>
+	
+	<!-- MongoTemplate for connecting and quering the documents in the database -->
+	<bean id="mongoTemplate" class="org.springframework.data.mongodb.core.MongoTemplate">
+		<constructor-arg name="mongo" ref="mongo" />
+		<constructor-arg name="databaseName" value="${mongodb.database}" />
+		<constructor-arg name="userCredentials" ref="mongoCredentials"/>
+	</bean>
 
+	<bean id="mongoCredentials" class="org.springframework.data.authentication.UserCredentials">
+		<constructor-arg name="username" value="${mongodb.username}" />
+		<constructor-arg name="password" value="${mongodb.password}" />
+    </bean>
+    
 </beans>

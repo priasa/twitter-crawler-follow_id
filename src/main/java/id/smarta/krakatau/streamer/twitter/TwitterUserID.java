@@ -1,10 +1,10 @@
 package id.smarta.krakatau.streamer.twitter;
 
 public enum TwitterUserID {
-	bekraf(3099316873l),
-	kominfo(177848697l),
-	rudiantara(2878952809l),
-	triawan(29362357l);
+	mtf(786333896l),
+	adira(2578289821l),
+	fif(384193674l),
+	bfi(159016742l);
 	
 	private Long userId;
 
